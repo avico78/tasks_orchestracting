@@ -1,18 +1,16 @@
 import pika
 
-class TaskMsgBroker:
+
+class TaskMsg:
+  
   """
   
-  Task actually instantiate inside Celery task - so not sure if can use asyncio ,
-  Task consume message from it's queue (queueu=task_uuid) which on Manager can push message .,
-  Task push message to Manager exchange which Manager consume from by only relavant task_uuid
+  Task actually instantiate inside Celery task - so not sure if should use asyncio ,
   
-  Task suppose to preform DB operation as insert data - and inform the Manager if it succuessed ,
-  and then wait to Manager decide if it can commit the data or rollback.
-  
-  The decision based on all other tasks state .
-  
-  
+  Task push message to Manager exchange and update Manager with current status .
+  Task consume message from it's own queue (queueu=task_uuid) - where  Manager can push message and notify task for next step(commit,rollback)
+  based on what he recvied on Manager queue (it idetify by routing_key = task_uuid).
+
   In Celery it looks something like:
   
   
@@ -46,13 +44,13 @@ class TaskMsgBroker:
   
   
   """
+
   
     def __init__(self, connection_string: str = None, queue_consumer: str = None ,exchange_name:str = None ,routing_key:str = None):
         self.connection_string = connection_string or f'amqp://guest:guest@localhost:5672/'
         self.queue_consumer = queue_consumer
         self.exchange_name = exchange_name
         self.routing_key = routing_key
-        
     def __enter__(self):
         self.connection = pika.BlockingConnection(pika.URLParameters(self.connection_string))
         self.channel = self.connection.channel()
@@ -60,18 +58,13 @@ class TaskMsgBroker:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        print("closing connection")
         self.connection.close()
 
     def consume(self, callback):
-        # Task consume from it's on queue (which only manager can push)
-        
         self.channel.basic_consume(queue=self.queue_consumer, on_message_callback=callback, auto_ack=True)
         self.channel.start_consuming()
 
     def produce(self ,message):
-       # Task push to Manager exchange so Manager is aware on all Tasks state
-        
         self.channel.basic_publish(exchange=self.exchange_name,
                         routing_key=self.routing_key,
                         body=message,
@@ -80,42 +73,56 @@ class TaskMsgBroker:
                         )
                         )
 
+
+
 def callback(ch, method, properties, body):
     data = body.decode()
     print("Manager decision:", data)
     if data == "commit":
-        print("commit the data")
+        print("Got it ,commit the data")
     elif data == "rollback":
-        print("rollback preform")
+        print("Got it ,rollback preform")
     exit()
 
 
-if __name__ == '__main__':
-    import json
-
-    connection_string = 'amqp://guest:guest@localhost:5672/'
-    queue = 'customer_1'
-    rule_uuid = 'c2ea6e9e-f7d8-4832-a807-662dcd09b8f9'
-
-
-    ## this would be under celert task for inserting data for example
-
-
-    message = {'rule_id':1, 'main_id':1, 'rule_uuid':rule_uuid, 'status': None}  
-
-    with TaskMsgBroker(connection_string=connection_string, queue_consumer=rule_uuid ,exchange_name='customer_1' ,routing_key=rule_uuid) as task_manager:
-        try:
-            # just for illustratation
-            #  enter integer for success or non int to failed 
-            # the return state will push the message to Manager and manager will return commit/rollback 
-            x = int(input("Enter a number: "))      
-            message['status'] = "OK"
-            print(message)
-            task_manager.produce(message=json.dumps(message))
-            task_manager.consume(callback)
-        except ValueError:
-            message['status'] = "NOT_OK"
-            task_manager.produce(message=json.dumps(message))
-            task_manager.consume(callback)
-
+def run_task(i:int):
         
+        connection_string = 'amqp://guest:guest@localhost:5672/'
+        queue = 'customer_1'
+        rules_uuid = list(map(str,range(1,number_of_tasks)))
+        message = {'rule_id':1, 'main_id':1, 'rule_uuid':rules_uuid[i], 'status': None}
+
+        with TaskMsg(connection_string=connection_string, queue_consumer=rules_uuid[i] ,exchange_name=queue ,routing_key=rules_uuid[i]) as task:
+            try:
+                5/(50-i)
+                message['status'] = "OK"
+                print(message)
+                task.produce(message=json.dumps(message))
+                task.consume(callback)
+            except ZeroDivisionError:
+                message['status'] = "NOT_OK"
+                task.produce(message=json.dumps(message))
+                task.consume(callback)
+
+
+
+if __name__ == '__main__':
+
+    import json
+    import threading
+    number_of_tasks=100
+    
+    threads = []
+    
+    for i in range(0,number_of_tasks):
+        thread = threading.Thread(target=run_task, args=(i,))
+        threads.append(thread)        
+
+    for j in threads:
+        j.start()
+
+
+    for j in threads:
+        j.join()
+
+      
