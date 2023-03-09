@@ -11,24 +11,17 @@ import asyncio
 class Manager:
 
     """
-    Manager based on async as whole program based asyncio .
+    Manager has dedciated exhcange and queue "customer_<#>" ,
+    Where exhange bind with tasks by the task_uuid .
     
-    
-    Manager has dedciated exhcange and queue to consume from,
-    Where exhange bind only to relavant tasks by task_uuid .
-    So Manager consume /listen to all tasks messages 
-    + Manager publish message to specific task (queue=task_uuid)
-    
-    
-    Task will publish message with routing_key contain task_uuid for it state (to Manager).
-    So Manager can idetify what current Task status (error,success)
-    + Task consume for it's own queue (to get insturction from Manager)
-    
-    Manager decide to  commit/rollback to all tasks in case single task return "OK"/"NOT_OK" messages .
+    And each Task can publish to this queue with currernt state with it's uuid.
+    So Manager can idetify what current Task status (error,success).
+        
+    if any tasks publish "NOT_OK" to Manager exchange -> Manager send rollback to all tasks at once,
     
     
     """
-    # FAILED_ALL_ON_FIRST_ERROR:bool = True
+
 
     def __init__(self, exchange_name, queue_name: str, connection_string: str = None, routing_keys: list = None):
         self.exchange_name = exchange_name
@@ -38,7 +31,7 @@ class Manager:
         self.exchange = None
         self.channel = None
         self.queue = None
-        self.routing_keys: ["tasks_uuid"] = list(map(str,routing_keys)) # required as in program using real uuid.hex
+        self.routing_keys: ["tasks_uuid"] = list(map(str,routing_keys))
         self.tasks_state = None
 
     async def connect(self):
@@ -46,12 +39,11 @@ class Manager:
         self.channel = await self.connection.channel()
         await self.channel.set_qos(prefetch_count=10)
         
-        self.exchange = await self.channel.declare_exchange(self.exchange_name, ExchangeType.DIRECT,
-                                                            auto_delete=False
-                                                           )
+        self.exchange = await self.channel.declare_exchange(
+           self.exchange_name, ExchangeType.DIRECT,auto_delete=False
+        )
 
         self.queue = await self.channel.declare_queue(self.queue_name ,exclusive=True)
-        
         if self.queue.declaration_result.message_count > 0:
             print(f"The queue '{self.queue_name}' exists and has {self.queue.declaration_result.message_count} messages")
             await self.queue.purge()
@@ -59,7 +51,7 @@ class Manager:
         else:
             print(f"The queue '{self.queue_name}' exists and empty")        
 
-      # binding routing_key with exchange
+
         await self._bind()
         
 
@@ -77,6 +69,7 @@ class Manager:
             async for message in queue_iter:
                 async with message.process():   
                        if str(message.routing_key) in messages_to_consume:
+                            print(message.body.decode())
                             data = message.body.decode()
                             data_json = json.loads(data)
                    
@@ -90,11 +83,11 @@ class Manager:
 
 
     async def _bind(self):
+        # binding all routing kets to Manager exhange
         for task_uuid in self.routing_keys:    
                 await self.queue.bind(self.exchange, routing_key=task_uuid)
 
     async def close(self):
-        print("Closing connection")
         if self.connection is not None:
             await self.connection.close()
 
@@ -114,14 +107,10 @@ class Manager:
             )
 
     async def rollback_tasks(self):
-            """
-            TODO:
-            Add support for updating the tasks only after all tasks messages 
-            recivied(all tasks on final stage-commit/rollback)
-            """
+        
             for task_uuid in self.routing_keys:
                 await self.publish(queue_name=str(task_uuid),message_body="rollback")
-        
+            
             exit()
 
     async def commit_tasks(self):
@@ -131,15 +120,18 @@ class Manager:
             exit()
 
 async def main():
-  
-    routing_keys = ['c2ea6e9e-f7d8-4832-a807-662dcd09b8f9']
+# for demo , will inititate the Manager by 100 tasks 
+# Which mean the Manager exchange associate by 100 routing_keys (in real world each tasks has it's own uuid)
+
+    number_of_tasks=100
+    routing_keys = list(map(str,range(1,number_of_tasks)))
     consumer = Manager(queue_name="customer_1",exchange_name="customer_1", connection_string="amqp://guest:guest@localhost/",routing_keys=routing_keys)
     await consumer.run()
 
 
-
-
 asyncio.run(main())
+
+
 
 
 
