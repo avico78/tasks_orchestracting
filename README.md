@@ -55,12 +55,12 @@ if one of them failed - preform rollback for all.
 and only if tasks passed inject the data with no error - all task notify to commit.
 
 to solve it the idea is to have Manager which do real-time monitroing on all tasks -
-if any one failed , all of the task will rollback/undo .
+if any one failed , all tasks will notify to preform rollback/undo .
 
 
-This class used in main program which actually
-runs mutliple Managers(customers) each runs it's own tasks -> tasks submited to celery workers .
-The program running asyncio and for that reason this write with async . 
+This class used part of main program where mutliple Managers(customers) exuecuted ,
+each runs it's own set of tasks -> (tasks submited to celery workers).
+The program running asyncio and for that reason this write in async . 
 
 
 
