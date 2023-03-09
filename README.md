@@ -12,9 +12,12 @@ All tasks will preform rollback
 How to run:
 
 Rabbitmq avilable - can run docker compose 
-Open 2 sesssion and execute :
-first,Manager - Manager will wait for tasks messagess...
-and task.py - a 100 "like" tasks will be running, task #50 will fail
+Open 2 sesssions and execute 
+
+first -> Manager scipt , it will wait for tasks messagess
+Second execute task.py - a 100 "like" tasks will be running, 
+task #50 will fail
+
 due to :
 ```
 ...
