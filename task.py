@@ -69,9 +69,9 @@ def run_task(task_queue_id:str):
             try:            
                # some DB step done here (insert data )
 
-               # failing on task 900 on purpose to get rollback
-                if task_queue_id == "task_1_800":
-                    print("Test - Failing Task #",i)
+               # failing on task task_1_8 on purpose to trigger full rollback
+                if task_queue_id == "task_1_8":
+                    print("Test - Failing:",task_queue_id)
                     raise TestFailed(choice(["code_1","code_2"]))
                 
                 message['status'] = "OK"
