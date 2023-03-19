@@ -53,7 +53,6 @@ class Manager:
 
 
         await self._bind()
-        
 
          
     async def consume(self):
