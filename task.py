@@ -84,7 +84,6 @@ def run_task(task_queue_id:str):
                 task.consume(callback)
 
 
-
 if __name__ == '__main__':
 
     import json
