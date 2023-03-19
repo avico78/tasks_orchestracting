@@ -48,7 +48,6 @@ class Manager:
         if self.queue.declaration_result.message_count > 0:
             print(f"The queue '{self.queue_name}' exists and has {self.queue.declaration_result.message_count} messages")
             await self.queue.purge()
-            print("After delete", self.queue.declaration_result.message_count)
         else:
             print(f"The queue '{self.queue_name}' exists and empty")        
 
@@ -131,9 +130,11 @@ class Manager:
 
             return
 
+
 async def main():
+
     queue = 'customer_1'
-    number_of_task = 900
+    number_of_task = 100
     task_rule_ids = range(1,number_of_task)
     routing_keys = [f'task_1_' + str(id)  for id in task_rule_ids]
     consumer = Manager(queue_name=queue, exchange_name=queue, connection_string="amqp://guest:guest@localhost/",routing_keys=routing_keys)

@@ -34,6 +34,8 @@ class TaskMsg:
 
 
 def callback(channel, method_frame, header_frame, body):
+    # Once proof the approach , this function will be responsible for conn.rollback/commit
+
     data = body.decode()
     print(method_frame.delivery_tag)
 
@@ -56,18 +58,19 @@ class TestFailed(Exception):
     
 
 
-def run_task(i:int):
+def run_task(task_queue_id:str):
 
         connection_string = 'amqp://guest:guest@localhost:5672/'
         queue = 'customer_1'
-        message = {'rule_id':1, 'main_id':1, 'rule_uuid':f'task_1_{i}' , 'status': None}
+        message = {'rule_id':1, 'main_id':1, 'rule_uuid':task_queue_id , 'status': None}
         print("creating task",message['rule_uuid'])
-        with TaskMsg(connection_string=connection_string, queue_task=f'task_1_{i}' ,exchange_name=queue ,routing_key=f'task_1_{i}') as task:
+        with TaskMsg(connection_string=connection_string, queue_task=task_queue_id ,exchange_name=queue ,routing_key=task_queue_id) as task:
 
             try:            
-               # time.sleep(randint(1,3))    
-               # failing on task 900
-                if i == 850:
+               # some DB step done here (insert data )
+
+               # failing on task 900 on purpose to get rollback
+                if task_queue_id == "task_1_800":
                     print("Test - Failing Task #",i)
                     raise TestFailed(choice(["code_1","code_2"]))
                 
@@ -86,12 +89,15 @@ if __name__ == '__main__':
 
     import json
     import threading
-    number_of_tasks=900
-    
+
+    number_of_task = 100
+    task_rule_ids = range(1,number_of_task)    
+    routing_keys = [f'task_1_' + str(id)  for id in task_rule_ids]
+
     threads = []
     
-    for i in range(1,number_of_tasks):
-        thread = threading.Thread(target=run_task, args=(i,))
+    for routing_key in routing_keys:
+        thread = threading.Thread(target=run_task, args=(routing_key,))
         threads.append(thread)        
 
     for j in threads:
