@@ -11,7 +11,6 @@ class TaskMsg:
     def __enter__(self):
         self.connection = pika.BlockingConnection(pika.URLParameters(self.connection_string))
         self.channel = self.connection.channel()
-     #   self.channel.queue_declare(queue=self.queue_task)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -21,7 +20,6 @@ class TaskMsg:
 
     def consume(self, callback):
         self.channel.basic_consume(queue=self.queue_task, on_message_callback=callback)
-        #self.channel.basic_ack()
         self.channel.start_consuming()
 
     def produce(self ,message):
@@ -62,15 +60,14 @@ def run_task(i:int):
 
         connection_string = 'amqp://guest:guest@localhost:5672/'
         queue = 'customer_1'
-        rules_id = list(map(str,range(1,number_of_tasks)))
-
         message = {'rule_id':1, 'main_id':1, 'rule_uuid':f'task_1_{i}' , 'status': None}
         print("creating task",message['rule_uuid'])
         with TaskMsg(connection_string=connection_string, queue_task=f'task_1_{i}' ,exchange_name=queue ,routing_key=f'task_1_{i}') as task:
 
             try:            
                # time.sleep(randint(1,3))    
-                if i == 2:
+               # failing on task 900
+                if i == 850:
                     print("Test - Failing Task #",i)
                     raise TestFailed(choice(["code_1","code_2"]))
                 
@@ -89,7 +86,7 @@ if __name__ == '__main__':
 
     import json
     import threading
-    number_of_tasks=3
+    number_of_tasks=900
     
     threads = []
     

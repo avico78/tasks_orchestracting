@@ -133,7 +133,7 @@ class Manager:
 
 async def main():
     queue = 'customer_1'
-    number_of_task = 3
+    number_of_task = 900
     task_rule_ids = range(1,number_of_task)
     routing_keys = [f'task_1_' + str(id)  for id in task_rule_ids]
     consumer = Manager(queue_name=queue, exchange_name=queue, connection_string="amqp://guest:guest@localhost/",routing_keys=routing_keys)
